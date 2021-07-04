@@ -632,7 +632,7 @@ bootfs（boot file system）主要包含BootLoader和kernel，BootLoader主要�
 
 rootfs（root file system）在bootfs之上，包含的就是典型的unix系统的/dev、 /proc、 /etc等标准目录和文件和一些命令，rootfs就是不同unix系统的发行版，比如Ubuntu、centos等。
 
-![image-20210521222150979](C:\Users\MSI\AppData\Roaming\Typora\typora-user-images\image-20210521222150979.png)
+![image-20210521222150979](README.assets/image-20210521222150979.png)
 
 我们平时安装的虚拟机centos镜像好几个G，Docker安装的才200多m，因为对于一个精简的OS，rootfs可以很小，只需包含最基本的命令，工具和程序库就行了，因为底层直接使用宿主机的内核，自己只需提供rootfs（相当于操作内核的客户端）就可以，由此可见不同发行版的bootfs基本是一致的，roorfs有差别，因此不同的发行版可以公有bootfs。虚拟机是分钟级别，容器是秒级。
 
@@ -944,4 +944,3 @@ $ docker run -d -p 3311:3306 -e MYSQL_ROOT_PASSWORD=[password] --name mysql02 --
 
 
 
-# DockerStudy
