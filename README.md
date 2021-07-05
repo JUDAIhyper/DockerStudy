@@ -932,6 +932,8 @@ $ docker run -d -p 3311:3306 -e MYSQL_ROOT_PASSWORD=[password] --name mysql02 --
 
 # DockerFile
 
+## DockerFile介绍
+
 Dockerfile是用来构建docker镜像的文件，命令参数脚本
 
 构建步骤：
@@ -979,11 +981,333 @@ Docker容器：镜像运行起来提供服务
 
 ## DockerFile指令
 
+以前的时候我们是使用别人的，现在我们尝试用dockerfile构建一个自己的镜像
+
+```shell
+FROM 		#基础镜像，一切从这里开始构建
+MAINTAINER	#镜像是谁写的，姓名+邮箱
+RUN			#镜像构建时需要运行的命令
+ADD			#步骤，tomcat镜像，这个tomcat压缩包；添加内容
+WORKDIR		#镜像工作目录
+VOLUME		#挂载的目录
+EXPOSE		#暴露端口配置
+CMD			#指定这个容器启动的时候要运行的命令,只有最后一个会生效，可被替代
+ENTRYPOINT	#指定这个容器启动的时候要运行的命令，可以追加命令
+ONBUILD		#当构建一个被继承DockerFile 这个时候就会运行 ONBUILD 的指令，触发指令
+COPY		#类似ADD,将我们的文件拷贝至镜像中
+ENV			#构建的时候设置环境变量
+```
+
 ![image-20210705115927756](README.assets/image-20210705115927756.png)
 
 
 
+## 实战测试
 
+DockerHub中99%的镜像都是从基础镜像过来的 FROM scratch，然后配置需要的软件和配置来进行构建
+
+![image-20210705172214080](README.assets/image-20210705172214080.png)
+
+>创建一个自己的centos
+
+```shell
+#1.编写DockerFile的文件
+# root @ VM-0-17-centos in /home/dockerfile [17:30:02] 
+$ cat mydockerfile-centos 
+FROM centos
+MAINTAINER judai<judai520@163.com>
+
+ENV MYPATH /user/local
+WORKDIR $MYPATH
+
+RUN yum -y install vim
+RUN yum -y install net-tools
+
+EXPOSE 90
+
+CMD echo $MYPATH
+CMD echo "-----end-----"
+CMD /bin/bash
+
+#2.通过这个文件构建镜像
+#命令 docker build -f dockerfile文件路径 -t 镜像名:[tag]
+
+Successfully built d48774c7d6f2
+Successfully tagged mycentos:0.1
+
+#3.测试运行
+```
+
+![image-20210705173509295](README.assets/image-20210705173509295.png)
+
+对比之前原生的centos：增加之后的镜像默认进入了工作目录，且可以使用vim
+
+![image-20210705173804660](README.assets/image-20210705173804660.png)
+
+![image-20210705174024343](README.assets/image-20210705174024343.png)
+
+我们可以列出本地进行的变更历史
+
+![image-20210705174242783](README.assets/image-20210705174242783.png)
+
+我们平时拿到一个镜像，可以研究一下它是如何构建的了。
+
+
+
+> CMD 和 ENTRYPOINT 区别
+
+```shell
+CMD			#指定这个容器启动的时候要运行的命令,只有最后一个会生效，可被替代
+ENTRYPOINT	#指定这个容器启动的时候要运行的命令，可以追加命令
+```
+
+测试cmd
+
+```shell
+#1.编写dockerfile文件
+# root @ VM-0-17-centos in /home/dockerfile [20:00:39] 
+$ cat dockerfile-cmd     
+FROM centos
+CMD ["ls","-a"]
+
+#2.构建镜像
+# root @ VM-0-17-centos in /home/dockerfile [19:59:55] C:1
+$ docker build -f dockerfile-cmd -t cmdtest .
+
+#3.启动容器
+# root @ VM-0-17-centos in /home/dockerfile [20:00:14] 
+$ docker run 608fe2c633ee               
+.
+..
+.dockerenv
+bin
+dev
+etc
+home
+lib
+lib64
+lost+found
+media
+mnt
+opt
+proc
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
+
+#想追加一个命令 -ls -al
+# root @ VM-0-17-centos in /home/dockerfile [20:04:46] 
+$ docker run 608fe2c633ee -l
+docker: Error response from daemon: OCI runtime create failed: container_linux.go:367: starting container process caused: exec: "-l": executable file not found in $PATH: unknown.
+
+#cmd的清理下 -l替换了["ls","-a"]命令，-l不是命令所以报错 ！
+```
+
+测试ENTRYPOINT
+
+```shell
+# root @ VM-0-17-centos in /home/dockerfile [20:14:03] 
+$ cat dockerfile-cmd-entrypoint 
+FROM centos
+ENTRYPOINT ["ls","-a"]
+
+$ docker run ca11f6c2d1fc              
+.
+..
+.dockerenv
+bin
+dev
+etc
+home
+lib
+lib64
+lost+found
+media
+mnt
+opt
+proc
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
+
+#ENTRYPOINT追加命令时会相应拼接执行
+# root @ VM-0-17-centos in /home/dockerfile [20:15:11] 
+$ docker run ca11f6c2d1fc -l
+total 56
+drwxr-xr-x   1 root root 4096 Jul  5 12:17 .
+drwxr-xr-x   1 root root 4096 Jul  5 12:17 ..
+-rwxr-xr-x   1 root root    0 Jul  5 12:17 .dockerenv
+lrwxrwxrwx   1 root root    7 Nov  3  2020 bin -> usr/bin
+drwxr-xr-x   5 root root  340 Jul  5 12:17 dev
+drwxr-xr-x   1 root root 4096 Jul  5 12:17 etc
+drwxr-xr-x   2 root root 4096 Nov  3  2020 home
+lrwxrwxrwx   1 root root    7 Nov  3  2020 lib -> usr/lib
+lrwxrwxrwx   1 root root    9 Nov  3  2020 lib64 -> usr/lib64
+drwx------   2 root root 4096 Dec  4  2020 lost+found
+drwxr-xr-x   2 root root 4096 Nov  3  2020 media
+drwxr-xr-x   2 root root 4096 Nov  3  2020 mnt
+drwxr-xr-x   2 root root 4096 Nov  3  2020 opt
+dr-xr-xr-x 230 root root    0 Jul  5 12:17 proc
+dr-xr-x---   2 root root 4096 Dec  4  2020 root
+drwxr-xr-x  11 root root 4096 Dec  4  2020 run
+lrwxrwxrwx   1 root root    8 Nov  3  2020 sbin -> usr/sbin
+drwxr-xr-x   2 root root 4096 Nov  3  2020 srv
+dr-xr-xr-x  13 root root    0 Jun 20 09:29 sys
+drwxrwxrwt   7 root root 4096 Dec  4  2020 tmp
+drwxr-xr-x  12 root root 4096 Dec  4  2020 usr
+drwxr-xr-x  20 root root 4096 Dec  4  2020 var
+```
+
+DockerFile中很多命令都十分相似，我们需要了解他们的区别，最好的学习方式就是测试并对比效果
+
+
+
+## 实战：Tomcat镜像
+
+1.准备镜像文件 tomcat 压缩包
+
+![image-20210705211145787](README.assets/image-20210705211145787.png)
+
+2.编写dockerfile文件，官方命名==Dockerfile==，build会自动寻找这个文件，就不需要 -f 进行指定了
+
+```shell
+# root @ VM-0-17-centos in /home/kuangshen/build/tomcat [22:25:59] 
+$ cat Dockerfile
+FROM centos
+MAINTAINER judai<judai520@163.com>
+
+COPY README.txt /user/local/README.txt
+
+ADD jdk-8u141-linux-x64.tar.gz /usr/local
+ADD apache-tomcat-9.0.50.tar.gz /usr/local
+
+RUN yum -y install vim
+
+ENV MYPATH /usr/local
+WORKDIR $MYPATH
+
+ENV JAVA_HOME /usr/local/jdk1.8.0_141
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.50
+ENV CATALINA_BASH /usr/local/apache-tomcat-9.0.50
+ENV PATH $PATH:$JAVA_HOME/bin:$CATALINA_HOME/lib:$CATALINA_HOME/bin
+
+EXPOSE 8080
+
+CMD /usr/local/apache-tomcat-9.0.50/bin/startup.sh && tail -F /usr/local/apache-tomcat-9.0.50/bin/logs/catalina.out
+```
+
+3.构建镜像
+
+```shell
+#docker build -t diytomcat .
+```
+
+4.启动镜像
+
+```shell
+# root @ VM-0-17-centos in /home/kuangshen/build/tomcat [22:35:51] 
+$ docker run -d -p 9090:8080 --name judaitomcat -v /home/kuangshen/build/tomcat/test:/usr/local/apache-tomcat-9.0.50/webapps/test -v /home/kuangshen/build/tomcat/tomcatlogs/:/usr/local/apache-tomcat-9.0.50/logs diytomcat
+```
+
+5.访问测试
+
+6.发布项目（由于做了卷挂载，我们直接在本地编写项目就可以发布了）
+
+> 在tomcat的test文件夹下建立文件夹WEB-INF ，在其中创建web.xml
+
+```shell
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" id="WebApp_ID" version="3.0">
+  <display-name>FirstWebFontEnd</display-name>
+  <welcome-file-list>
+    <welcome-file>index.html</welcome-file>
+    <welcome-file>index.htm</welcome-file>
+    <welcome-file>index.jsp</welcome-file>
+    <welcome-file>default.html</welcome-file>
+    <welcome-file>default.htm</welcome-file>
+    <welcome-file>default.jsp</welcome-file>
+  </welcome-file-list>
+</web-app>
+```
+
+> 在test文件夹下创建index.jsp文件
+
+```shell
+<%@ page language="java" contentType="text/html; charset=utf-8"
+    pageEncoding="utf-8"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>首页</title>
+<style>
+    *{
+    padding:0;
+    margin:0;
+    font-family:"微软雅黑";
+}
+.header{
+    height:72px;
+    background:#458fce ;
+}
+.header .logo{
+    color:#fff ;
+    line-height:70px;
+    font-size:30px;
+    margin-left:20px;
+    display:inline-block;
+    text-align:center;
+
+}
+a {
+    color: #fff ;
+    text-decoration: none ;
+}
+.header .login{
+    float:right;
+    color:#fff ;
+    line-height:72px;
+    margin-right:2px;
+    display:inline-block;
+}
+.banner{
+    height:380px;
+    overflow:hidden;
+    background: #ddd;
+}
+</style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">web实践</div>
+        <div class ="login">
+            <a href ="javascript:void(0)">登录</a>
+            <span>|</span> 
+            <a href ="javascript:void(0)">故事</a>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+发现：项目部署成功，可以正常访问页面
+
+![image-20210705230244852](README.assets/image-20210705230244852.png)
+
+
+
+以后开发的步骤：需要掌握Dockerfile的编写，我们之后的一切都是使用docker镜像来进行
 
 
 
