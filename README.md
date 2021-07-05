@@ -930,9 +930,56 @@ $ docker run -d -p 3311:3306 -e MYSQL_ROOT_PASSWORD=[password] --name mysql02 --
 
 
 
-
-
 # DockerFile
+
+Dockerfile是用来构建docker镜像的文件，命令参数脚本
+
+构建步骤：
+
+1. 构建一个dockerfile文件
+2. docker build 构建成为一个镜像
+3. docker run 运行镜像
+4. docker push 发布镜像（DockerHub、阿里云镜像仓库）
+
+查看一下官方是怎么做的
+
+![image-20210705113944949](README.assets/image-20210705113944949.png)
+
+
+
+![image-20210705114222367](README.assets/image-20210705114222367.png)
+
+很多官方镜像都是基础包，我们通常会自己搭建自己的镜像。
+
+官方既然可以制作镜像，那我们也可以自己构建。
+
+## DockerFile构建过程
+
+**基础知识：**
+
+1.每个保留关键字（指令）都必须是大写字母
+
+2.执行顺序从上到下
+
+3.#表示注释
+
+4.每一个指令都会创建提交一个新的镜像层，并提交！
+
+<img src="README.assets/pic2.zhimg.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=.jpeg" alt="img" style="zoom:80%;" />
+
+dockerfile是面向开发的，我们以后要发布项目，做镜像，就需要编写dockerfile文件，这个文件十分简单。
+
+步骤：开发、部署、上线运维
+
+Dockerfile：构建文件，定义了一切的步骤，源代码
+
+Dockerimage：通过Dockerfile构建生成的镜像，最终发布和运行的产品
+
+Docker容器：镜像运行起来提供服务
+
+## DockerFile指令
+
+![image-20210705115927756](README.assets/image-20210705115927756.png)
 
 
 
