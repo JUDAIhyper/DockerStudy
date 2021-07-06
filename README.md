@@ -1311,7 +1311,215 @@ a {
 
 
 
+##  发布自己的镜像
+
+> DockerHub
+
+1.地址https://hub.docker.com/ 注册自己的账号
+
+2.确定这个账号可以登录
+
+3.在我们的服务器上提交自己的镜像
+
+```shell
+# root @ VM-0-17-centos in ~ [11:39:28] 
+$ docker login --help         
+
+Usage:  docker login [OPTIONS] [SERVER]
+
+Log in to a Docker registry.
+If no server is specified, the default is defined by the daemon.
+
+Options:
+  -p, --password string   Password
+      --password-stdin    Take the password from stdin
+  -u, --username string   Username
+```
+
+4.登录完毕后就可以提交镜像了 docker push
+
+```shell
+# root @ VM-0-17-centos in ~ [11:49:33] C:1
+$ docker login -u [username]
+Password: 
+WARNING! Your password will be stored unencrypted in /root/.docker/config.json.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/engine/reference/commandline/login/#credentials-store
+
+Login Succeeded
+```
+
+5.提交镜像
+
+```shell
+#如果报错可以更改镜像名称试试 尽量带上版本号
+# root @ VM-0-17-centos in ~ [11:54:05] C:1
+$ docker tag diytomcat judaiplus/tomcat:1.0  
+
+# root @ VM-0-17-centos in ~ [11:54:42] C:1
+$ docker push judaiplus/tomcat:1.0 
+The push refers to repository [docker.io/judaiplus/tomcat]
+3b4f055d7ccd: Pushed 
+3a204f840eef: Pushed 
+1b63d65066a5: Pushed 
+89ac6c338bdd: Pushed 
+2653d992f4ef: Mounted from library/centos 
+1.0: digest: sha256:368e242a1d38cf3f3b1995d8ae8947148bd09099893511bd55e59bc1ca770532 size: 1373
+```
+
+提交的时候也是按照镜像层级来进行提交的
+
+
+
+> 阿里云镜像服务
+
+1.登录阿里云
+
+2.找到容器镜像服务
+
+3.创建命名空间
+
+4.创建容器镜像
+
+5.浏览阿里云
+
+![image-20210706200640523](README.assets/image-20210706200640523.png)
+
+
+
+**小结：**
+
+<img src="README.assets/www.itdaan.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=.jpeg" alt="img" style="zoom:80%;" />
+
+
+
 # Docker 网络
+
+## 理解Docker0
+
+清空所有环境
+
+```shell
+docker rmi -f $(docker images -q)
+```
+
+![image-20210706211355689](README.assets/image-20210706211355689.png)
+
+三个网络
+
+```shell
+#问题： docker是如何处理容器网络访问的？
+```
+
+![image-20210706211531177](README.assets/image-20210706211531177.png)
+
+```shell
+# root @ VM-0-17-centos in ~ [21:24:15] 
+$ docker run -d -P --name tomcat01 tomcat    
+
+#查看容器的内部ip地址  ip addr ,  发现容器启动的时候会得到一个 eth0@if88 ip地址，这是由docker分配的
+# root @ VM-0-17-centos in ~ [21:24:15] 
+$ docker exec -it tomcat01 ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+87: eth0@if88: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether 02:42:ac:12:00:02 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 172.18.0.2/16 brd 172.18.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+
+#思考：linux能不能 ping 通容器内部？
+# root @ VM-0-17-centos in ~ [21:37:18] 
+$ ping 172.18.0.2
+PING 172.18.0.2 (172.18.0.2) 56(84) bytes of data.
+64 bytes from 172.18.0.2: icmp_seq=1 ttl=64 time=0.071 ms
+64 bytes from 172.18.0.2: icmp_seq=2 ttl=64 time=0.048 ms
+64 bytes from 172.18.0.2: icmp_seq=3 ttl=64 time=0.052 ms
+
+#linux可以 ping 通docker容器内部
+```
+
+> 原理： 
+
+1.我们每启动一个docker容器，docker就会给docker容器分配一个id，我们只要安装了docker，就会有一个网卡docker0
+
+桥接模式，使用的技术是veth-pair技术
+
+再次测试 ip addr
+
+![image-20210706220507265](README.assets/image-20210706220507265.png)
+
+2.再启动一个容器测试，发现又多了一对网卡
+
+![image-20210706220721742](README.assets/image-20210706220721742.png)
+
+```shell
+#我们发现这个容器带来的网卡都是一对一对的
+#evth-pair 就是一对的虚拟设备接口，他们都是成对出现的，一段连着协议，一段彼此相连（可以通信）
+#正因为有这个特性， veth-pair 充当一个桥梁，连接各种虚拟网络设备的
+#Openstac，Docker容器之间的连接，OVS的连接，都是使用veth-pair技术
+```
+
+3.我们来测试下tomcat01和tomcat02是否可以ping通
+
+```shell
+# root @ VM-0-17-centos in ~ [22:25:19] 
+$ docker exec -it tomcat01 ping 172.18.0.3
+PING 172.18.0.3 (172.18.0.3) 56(84) bytes of data.
+64 bytes from 172.18.0.3: icmp_seq=1 ttl=64 time=0.086 ms
+64 bytes from 172.18.0.3: icmp_seq=2 ttl=64 time=0.060 ms
+64 bytes from 172.18.0.3: icmp_seq=3 ttl=64 time=0.064 ms
+64 bytes from 172.18.0.3: icmp_seq=4 ttl=64 time=0.059 ms
+
+#结论：容器和容器之间是可以互相ping通的
+```
+
+绘制一个网络模型图
+
+<img src="README.assets/image-20210706223103797.png" alt="image-20210706223103797" style="zoom:80%;" />
+
+结论：tomcat01 和tomcat02 是共用的一个路由器，docker0。
+
+所有的容器不指定网络的情况下，都是docker0路由的，docker会给我们的容器分配一个默认的可用IP
+
+> 小结
+
+docker使用的是Linux的桥接，宿主机中是一个docker容器的网桥 docker0
+
+<img src="README.assets/image-20210706224041635.png" alt="image-20210706224041635" style="zoom:80%;" />
+
+docker中所有网络接口都是虚拟的，虚拟的转发效率高！（内网传递文件）
+
+只要容器删除，对应网桥一对就没了！
+
+
+
+**--link**
+
+> 思考一个场景，我们编写一个微服务，database url=ip: ，项目不重启，数据库ip换掉了，我们希望可以处理这个问题，可以用名字来访问容器？
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
